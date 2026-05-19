@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BarraLateral } from "./componentes/BarraLateral.jsx";
 import { ControlStock } from "./pantallas/ControlStock.jsx";
 import { PuntoDeVenta } from "./pantallas/PuntoDeVenta.jsx";
@@ -7,12 +7,40 @@ import { PRODUCTOS_INICIALES, FACTURAS_INICIALES, GASTOS_INICIALES } from "./dat
 
 export default function App() {
     const [moduloActual, setModuloActual] = useState("caja");
-    const [productos, setProductos] = useState(PRODUCTOS_INICIALES);
-    const [facturas, setFacturas] = useState(FACTURAS_INICIALES);
-    const [gastos, setGastos] = useState(GASTOS_INICIALES);
+
+    // ── ESTADOS CON CARGA INTELIGENTE DESDE LOCALSTORAGE ──
+    const [productos, setProductos] = useState(() => {
+        const guardado = localStorage.getItem("minimarket_productos");
+        return guardado ? JSON.parse(guardado) : PRODUCTOS_INICIALES;
+    });
+
+    const [facturas, setFacturas] = useState(() => {
+        const guardado = localStorage.getItem("minimarket_facturas");
+        return guardado ? JSON.parse(guardado) : FACTURAS_INICIALES;
+    });
+
+    const [gastos, setGastos] = useState(() => {
+        const guardado = localStorage.getItem("minimarket_gastos");
+        return guardado ? JSON.parse(guardado) : GASTOS_INICIALES;
+    });
 
     const cadenaFecha = `Hoy, ${new Date().toLocaleDateString("es-AR")}`;
 
+    // ── EFECTOS PARA GUARDAR AUTOMÁTICAMENTE CUANDO ALGO CAMBIE ──
+    useEffect(() => {
+        localStorage.setItem("minimarket_productos", JSON.stringify(productos));
+    }, [productos]);
+
+    useEffect(() => {
+        localStorage.setItem("minimarket_facturas", JSON.stringify(facturas));
+    }, [facturas]);
+
+    useEffect(() => {
+        localStorage.setItem("minimarket_gastos", JSON.stringify(gastos));
+    }, [gastos]);
+
+
+    // Función global para registrar ventas e impactar stock/facturas
     const registrarNuevaVenta = (itemsCarrito, totalVenta) => {
         setProductos(prevProductos =>
             prevProductos.map(prod => {
@@ -57,6 +85,7 @@ export default function App() {
             <BarraLateral moduloActual={moduloActual} setModuloActual={setModuloActual} />
 
             <main style={{ flex: 1, overflow: "auto" }}>
+                {/* Barra Superior */}
                 <div style={{ background: "#fff", borderBottom: "1px solid #f0f0f0", padding: "14px 32px", display: "flex", alignItems: "center", position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.04)", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#9ca3af" }}>
                         <span>Sistema</span>
@@ -66,16 +95,23 @@ export default function App() {
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f0fdf4", color: "#16a34a", padding: "6px 14px", borderRadius: 20 }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-                            <span style={{ fontSize: 12, fontWeight: 700 }}>Terminal Online</span>
+                            <span style={{ fontSize: 12, fontWeight: 700 }}>Terminal Online (Con Memoria)</span>
                         </div>
                         <span style={{ fontSize: 12, color: "#9ca3af" }}>{cadenaFecha}</span>
                     </div>
                 </div>
 
+                {/* Contenedor Dinámico */}
                 <div style={{ padding: "28px 32px", maxWidth: 1100, margin: "0 auto" }}>
-                    {moduloActual === "inventario" && <ControlStock productos={productos} />}
-                    {moduloActual === "caja" && <PuntoDeVenta productos={productos} onFinalizarVenta={registrarNuevaVenta} />}
-                    {moduloActual === "contabilidad" && <Facturacion facturas={facturas} gastos={gastos} setGastos={setGastos} />}
+                    {moduloActual === "inventario" && (
+                        <ControlStock productos={productos} setProductos={setProductos} /> // <-- ¡ASEGÚRATE DE AGREGAR setProductos={setProductos} AQUÍ!
+                    )}
+                    {moduloActual === "caja" && (
+                        <PuntoDeVenta productos={productos} onFinalizarVenta={registrarNuevaVenta} />
+                    )}
+                    {moduloActual === "contabilidad" && (
+                        <Facturacion facturas={facturas} gastos={gastos} setGastos={setGastos} />
+                    )}
                 </div>
             </main>
         </div>

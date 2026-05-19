@@ -7,32 +7,46 @@ export function PuntoDeVenta({ productos, onFinalizarVenta }) {
     const [busqueda, setBusqueda] = useState("");
     const [metodoPago, setMetodoPago] = useState("efectivo");
 
-    // Buscar el producto en la lista real enviada por App.jsx
-    const buscarYAgregarProducto = (e) => {
+    // ── NUEVO ESTADO PARA CONTROLAR LAS SUGERENCIAS ──
+    const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+
+    // Filtrar productos candidatos en base a lo que escribe el usuario (mínimo 1 letra)
+    const sugerenciasFiltradas = busqueda.trim() === ""
+        ? []
+        : productos.filter(p =>
+            p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+            p.ean.includes(busqueda)
+        );
+
+    // Función modificada para agregar un producto directamente desde el catálogo
+    const agregarProductoAlCarrito = (producto) => {
+        if (producto.stock === 0) {
+            alert("¡Atención! Este producto no cuenta con unidades disponibles en stock.");
+            return;
+        }
+
+        const existeEnCarrito = carrito.find((item) => item.id === producto.id);
+        if (existeEnCarrito) {
+            setCarrito(
+                carrito.map((item) =>
+                    item.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item
+                )
+            );
+        } else {
+            setCarrito([...carrito, { ...producto, cantidad: 1 }]);
+        }
+        setBusqueda(""); // Limpiar buscador
+        setMostrarSugerencias(false); // Ocultar sugerencias
+    };
+
+    // Manejar el "Enter" clásico del formulario
+    const manejarSubmitBuscador = (e) => {
         if (e) e.preventDefault();
         if (!busqueda.trim()) return;
 
-        const encontrado = productos.find(
-            (p) => p.ean === busqueda || p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-        );
-
-        if (encontrado) {
-            if (encontrado.stock === 0) {
-                alert("¡Atención! Este producto no cuenta con unidades disponibles en stock.");
-                return;
-            }
-
-            const existeEnCarrito = carrito.find((item) => item.id === encontrado.id);
-            if (existeEnCarrito) {
-                setCarrito(
-                    carrito.map((item) =>
-                        item.id === encontrado.id ? { ...item, cantidad: item.cantidad + 1 } : item
-                    )
-                );
-            } else {
-                setCarrito([...carrito, { ...encontrado, cantidad: 1 }]);
-            }
-            setBusqueda(""); // Limpiar buscador
+        // Si hay candidatos, tomamos el primero de la lista para agilizar
+        if (sugerenciasFiltradas.length > 0) {
+            agregarProductoAlCarrito(sugerenciasFiltradas[0]);
         } else {
             alert("Producto no encontrado en el catálogo.");
         }
@@ -43,7 +57,6 @@ export function PuntoDeVenta({ productos, onFinalizarVenta }) {
             carrito.map((item) => {
                 if (item.id === id) {
                     const nuevaCant = item.cantidad + cambio;
-                    // Validar que no pida más del stock físico real disponible
                     const productoOriginal = productos.find((p) => p.id === id);
                     if (nuevaCant > productoOriginal.stock) {
                         alert(`Límite alcanzado. Solo quedan ${productoOriginal.stock} unidades disponibles.`);
@@ -61,35 +74,70 @@ export function PuntoDeVenta({ productos, onFinalizarVenta }) {
 
     const procesarCobro = () => {
         if (carrito.length === 0) return;
-
-        // Disparar acción global hacia App.jsx
         onFinalizarVenta(carrito, totalCarrito);
-
         alert("¡Venta procesada con éxito! El inventario ha sido actualizado.");
-        setCarrito([]); // Limpiar terminal de caja para el próximo cliente
+        setCarrito([]);
     };
 
     return (
         <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
-                {/* Formulario Buscador */}
-                <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                    <form onSubmit={buscarYAgregarProducto} style={{ display: "flex", gap: 10 }}>
+
+                {/* Formulario Buscador con Autocompletado */}
+                <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", position: "relative" }}>
+                    <form onSubmit={manejarSubmitBuscador} style={{ display: "flex", gap: 10 }}>
                         <div style={{ flex: 1, position: "relative" }}>
                             <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }}>
                                 <Icono d={iconos.buscar} tamano={16} grosorTrazo={2} />
                             </span>
                             <input
                                 value={busqueda}
-                                onChange={(e) => setBusqueda(e.target.value)}
-                                placeholder="Escriba 'Coca', 'Lincoln' o el EAN y presione Enter..."
+                                onChange={(e) => {
+                                    setBusqueda(e.target.value);
+                                    setMostrarSugerencias(true);
+                                }}
+                                onFocus={() => setMostrarSugerencias(true)}
+                                // Pequeño retraso al desnfocar para permitir hacer clic en la sugerencia antes de que se oculte
+                                onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
+                                placeholder="Escriba 'Coca', 'Lincoln' o el EAN..."
                                 style={{ width: "100%", paddingLeft: 40, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: 14, outline: "none", color: "#374151" }}
                             />
                         </div>
-                        <button type="submit" style={{ display: "flex", alignItems: "center", gap: 10, background: "#eff6ff", color: "#2563eb", border: "1.5px solid #bfdbfe", borderRadius: 10, padding: "0 18px", fontWeight: 700, cursor: "pointer" }}>
+                        <button type="submit" style={{ display: "flex", alignItems: "center", gap: 8, background: "#eff6ff", color: "#2563eb", border: "1.5px solid #bfdbfe", borderRadius: 10, padding: "0 18px", fontWeight: 700, cursor: "pointer" }}>
                             Añadir
                         </button>
                     </form>
+
+                    {/* ── LISTA FLOTANTE DE SUGERENCIAS ASOCIADA AL BUSCADOR ── */}
+                    {mostrarSugerencias && sugerenciasFiltradas.length > 0 && (
+                        <div style={{
+                            position: "absolute", top: "calc(100% - 8px)", left: 20, width: "calc(100% - 148px)",
+                            background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
+                            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                            zIndex: 50, maxHeight: 220, overflowY: "auto", marginTop: 12
+                        }}>
+                            {sugerenciasFiltradas.map((prod) => (
+                                <div
+                                    key={prod.id}
+                                    onClick={() => agregarProductoAlCarrito(prod)}
+                                    style={{
+                                        padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center",
+                                        cursor: "pointer", borderBottom: "1px solid #f3f4f6", transition: "background 0.15s"
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = "#f0f6ff"}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}
+                                >
+                                    <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{prod.nombre}</div>
+                                        <div style={{ fontSize: 11, color: "#9ca3af" }}>EAN: {prod.ean} • Stock: {prod.stock} u.</div>
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>
+                                        ${prod.precio.toLocaleString("es-AR")}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Tabla Detalle Venta */}
