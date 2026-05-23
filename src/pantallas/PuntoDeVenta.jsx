@@ -74,9 +74,12 @@ export function PuntoDeVenta({ productos, onFinalizarVenta }) {
 
     const procesarCobro = () => {
         if (carrito.length === 0) return;
-        onFinalizarVenta(carrito, totalCarrito);
+  
+        // Pasamos el carrito, el total y el metodo de pago seleccionado
+        onFinalizarVenta(carrito, totalCarrito, metodoPago);
+  
         alert("¡Venta procesada con éxito! El inventario ha sido actualizado.");
-        setCarrito([]);
+        setCarrito([]); 
     };
 
     return (
